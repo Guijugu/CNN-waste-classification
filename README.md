@@ -1,2 +1,2 @@
 # start
-AiSummerCamp2024 Project
+Ai SummerCamp 2024 Project
