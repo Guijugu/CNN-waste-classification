@@ -1,9 +1,10 @@
-﻿import torch
+import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from dataset import WasteDataset  # 假设你已经将之前的代码保存为 dataset.py
+from torch.optim.lr_scheduler import StepLR
 
 # 定义 CNN 模型
 class CNNModel(nn.Module):
@@ -27,17 +28,19 @@ class CNNModel(nn.Module):
         subcategory = self.fc2_sub(x)
         return main_category, subcategory
 
-# 数据转换
+# 数据转换和增强
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
+    transforms.RandomHorizontalFlip(),
+    transforms.RandomRotation(10),
     transforms.ToTensor(),
 ])
 
 # 创建数据集和数据加载器
 train_dataset = WasteDataset(txt_file=r"D:\pythonProject\chengxu\train.txt", transform=transform)
 val_dataset = WasteDataset(txt_file=r"D:\pythonProject\chengxu\val.txt", transform=transform)
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False)
 
 # 获取子分类数量
 subcategories = set()
@@ -52,15 +55,23 @@ num_subcategories = len(subcategories)
 main_category_to_idx = {category: idx for idx, category in enumerate(main_categories)}
 subcategory_to_idx = {category: idx for idx, category in enumerate(subcategories)}
 
+# 保存标签映射
+torch.save(main_category_to_idx, "main_category_to_idx.pth")
+torch.save(subcategory_to_idx, "subcategory_to_idx.pth")
+
 # 初始化模型、损失函数和优化器
 model = CNNModel(num_main_categories=num_main_categories, num_subcategories=num_subcategories)
 criterion_main = nn.CrossEntropyLoss()
 criterion_sub = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
+scheduler = StepLR(optimizer, step_size=5, gamma=0.1)  # 学习率调度
 
 # 训练模型
-num_epochs = 10  # 根据需要调整
+num_epochs = 5 # 根据需要调整
 best_val_loss = float('inf')  # 用于保存最佳验证损失
+early_stop_counter = 0  # 早停计数器
+early_stop_patience = 3  # 早停耐心值
+
 for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0
@@ -75,6 +86,8 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
         running_loss += loss.item()
+
+    scheduler.step()  # 更新学习率
 
     print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(train_loader)}")
 
@@ -97,5 +110,14 @@ for epoch in range(num_epochs):
     if val_loss < best_val_loss:
         best_val_loss = val_loss
         torch.save(model.state_dict(), "best_cnn_model.pth")
+        early_stop_counter = 0  # 重置早停计数器
+    else:
+        early_stop_counter += 1
+
+    # 检查是否需要早停
+    if early_stop_counter >= early_stop_patience:
+        print("早停触发，停止训练")
+        break
 
 print("训练完成！")
+
