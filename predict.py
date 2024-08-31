@@ -1,4 +1,4 @@
-﻿import torch
+import torch
 import torch.nn as nn
 from PIL import Image
 import tkinter as tk
@@ -35,9 +35,12 @@ transform = transforms.Compose([
 
 # 加载模型
 num_main_categories = 4  # 有害垃圾、厨余垃圾、可回收物、其他垃圾
-num_subcategories = 10  # 根据你的实际子分类数量修改
+main_category_to_idx = torch.load("main_category_to_idx.pth")
+subcategory_to_idx = torch.load("subcategory_to_idx.pth")
+num_subcategories = len(subcategory_to_idx)
+
 model = CNNModel(num_main_categories=num_main_categories, num_subcategories=num_subcategories)
-model.load_state_dict(torch.load("best_cnn_model.pth"))
+model.load_state_dict(torch.load("best_cnn_model.pth", weights_only=True))
 model.eval()
 
 # 图形化界面
@@ -65,8 +68,10 @@ class WasteClassifierApp:
         self.model.eval()
         with torch.no_grad():
             outputs_main, outputs_sub = self.model(image)
-            main_category = torch.argmax(outputs_main, dim=1).item()
-            subcategory = torch.argmax(outputs_sub, dim=1).item()
+            main_category_idx = torch.argmax(outputs_main, dim=1).item()
+            subcategory_idx = torch.argmax(outputs_sub, dim=1).item()
+            main_category = list(main_category_to_idx.keys())[list(main_category_to_idx.values()).index(main_category_idx)]
+            subcategory = list(subcategory_to_idx.keys())[list(subcategory_to_idx.values()).index(subcategory_idx)]
             self.result_label.config(text=f"主分类: {main_category}, 子分类: {subcategory}")
 
     def run(self):
@@ -75,3 +80,4 @@ class WasteClassifierApp:
 # 启动图形化界面
 app = WasteClassifierApp(model, transform)
 app.run()
+
