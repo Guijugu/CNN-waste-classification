@@ -1,4 +1,4 @@
-﻿import torch
+import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -38,14 +38,20 @@ test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
 # 获取子分类数量
 subcategories = set()
-for _, _, subcategory in test_dataset:
+main_categories = set()
+for _, main_category, subcategory in test_dataset:
+    main_categories.add(main_category)
     subcategories.add(subcategory)
+num_main_categories = len(main_categories)
 num_subcategories = len(subcategories)
 
+# 创建标签映射
+main_category_to_idx = torch.load("main_category_to_idx.pth")
+subcategory_to_idx = torch.load("subcategory_to_idx.pth")
+
 # 初始化模型
-num_main_categories = 4  # 有害垃圾、厨余垃圾、可回收物、其他垃圾
 model = CNNModel(num_main_categories=num_main_categories, num_subcategories=num_subcategories)
-model.load_state_dict(torch.load("best_cnn_model.pth"))
+model.load_state_dict(torch.load("best_cnn_model.pth", weights_only=True))
 model.eval()
 
 # 验证模型
@@ -59,8 +65,8 @@ total = 0
 with torch.no_grad():
     for images, main_categories, subcategories in test_loader:
         outputs_main, outputs_sub = model(images)
-        main_categories = torch.tensor([int(main_category) for main_category in main_categories])
-        subcategories = torch.tensor([int(subcategory) for subcategory in subcategories])
+        main_categories = torch.tensor([main_category_to_idx[main_category] for main_category in main_categories])
+        subcategories = torch.tensor([subcategory_to_idx[subcategory] for subcategory in subcategories])
         loss_main = criterion_main(outputs_main, main_categories)
         loss_sub = criterion_sub(outputs_sub, subcategories)
         test_loss += (loss_main + loss_sub).item()
@@ -78,3 +84,4 @@ accuracy_sub = 100 * correct_sub / total
 print(f"Test Loss: {test_loss}")
 print(f"Main Category Accuracy: {accuracy_main}%")
 print(f"Subcategory Accuracy: {accuracy_sub}%")
+
