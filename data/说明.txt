@@ -1,0 +1,2 @@
+train.txt为训练集，test.txt为验证集，val.txt为预测集。
+把waste里面的文件按照7：2：1来分配，改编成txt文件，包含四种垃圾分类
