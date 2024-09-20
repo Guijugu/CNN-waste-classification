@@ -1,0 +1,3 @@
+基于CNN的resnet50残差网络进行训练，train.py进行训练，把训练好的模型比较后保存在best model里
+test.py为验证，用来验证模型，并把结果通过曲线表示
+predict.py利用tkinter来提供图形化界面进行预测
